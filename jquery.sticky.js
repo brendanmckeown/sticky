@@ -17,12 +17,54 @@
       className: 'is-sticky',
       wrapperClassName: 'sticky-wrapper',
       center: false,
+      navigation: false,
+      activeNavClass: 'active',
+      scrollSpeed: 0.8,
       getWidthFrom: ''
     },
     $window = $(window),
     $document = $(document),
     sticked = [],
     windowHeight = $window.height(),
+
+    updateNavigation = function(sticked, currentScrollPos) {
+      var navData = sticked.navData,
+        activeClass = sticked.activeNavClass;
+      for (var item in navData) {
+        if (navData.hasOwnProperty(item)) {
+          var navitem = navData[item];
+          if (currentScrollPos >= navitem.top
+            && currentScrollPos < navitem.bottom) {
+              if (!navitem.active) {
+                navitem.active = true;
+                navitem.anchor.addClass(activeClass);
+              }
+          } else if (navitem.active) {
+            navitem.active = false;
+            navitem.anchor.removeClass(activeClass);
+          }
+        }
+      }
+    },
+
+    navigationClick = function(event) {
+      event.preventDefault();
+      var targetId = $(this).attr('href'),
+        offsetPx = event.data.stickyHeight,
+        navData = event.data.navData,
+        target = navData[targetId].top - offsetPx;
+      scrollToSection(target, event.data.scrollSpeed);
+    },
+
+    scrollToSection = function(target, speed) {
+      var distance = Math.abs($window.scrollTop() - target),
+        duration = distance * speed;
+      scrollOverride = true;
+      $("html, body").animate({
+        scrollTop: target
+      }, duration);
+    },
+
     scroller = function() {
       var scrollTop = $window.scrollTop(),
         documentHeight = $document.height(),
@@ -32,8 +74,8 @@
       for (var i = 0; i < sticked.length; i++) {
         var s = sticked[i],
           elementTop = s.stickyWrapper.offset().top,
-          etse = elementTop - s.topSpacing - extra;
-
+          etse = elementTop - s.topSpacing - extra,
+          elementHeight = s.stickyElement.outerHeight();
         if (scrollTop <= etse) {
           if (s.currentTop !== null) {
             s.stickyElement
@@ -44,7 +86,7 @@
           }
         }
         else {
-          var newTop = documentHeight - s.stickyElement.outerHeight()
+          var newTop = documentHeight - elementHeight
             - s.topSpacing - s.bottomSpacing - scrollTop - extra;
           if (newTop < 0) {
             newTop = newTop + s.topSpacing;
@@ -63,6 +105,9 @@
             s.stickyElement.parent().addClass(s.className);
             s.currentTop = newTop;
           }
+        }
+        if (s.navData) {
+          updateNavigation(s, (scrollTop + elementHeight));
         }
       }
     },
@@ -91,6 +136,32 @@
 
           var stickyWrapper = stickyElement.parent();
           stickyWrapper.css('height', stickyElement.outerHeight());
+
+          var navData = {};
+          if (o.navigation) {
+            var anchors = stickyElement.find('a[href^="#"]');
+            for (var i = 0; i < anchors.length; i++) {
+              var $anchor = $(anchors[i]),
+                anchorHref = $anchor.attr('href'),
+                $section = $(anchorHref);
+              if ($section.length) {
+                var sectionTop = Math.round($section.offset().top),
+                  sectionHeight = $section.outerHeight();
+                navData[anchorHref] = {
+                  anchor: $anchor,
+                  top: sectionTop,
+                  bottom: sectionTop + sectionHeight,
+                  active: false
+                };
+              }
+            }
+            stickyElement.on('click', 'a[href^="#"]', {
+	            stickyHeight: stickyElement.outerHeight(),
+	            scrollSpeed: o.scrollSpeed,
+	            navData: navData
+            }, navigationClick);
+          }
+
           sticked.push({
             topSpacing: o.topSpacing,
             bottomSpacing: o.bottomSpacing,
@@ -98,7 +169,9 @@
             currentTop: null,
             stickyWrapper: stickyWrapper,
             className: o.className,
-            getWidthFrom: o.getWidthFrom
+            getWidthFrom: o.getWidthFrom,
+            navData: navData,
+            activeNavClass: o.activeNavClass
           });
         });
       },
@@ -108,7 +181,7 @@
           var unstickyElement = $(this);
 
           removeIdx = -1;
-          for (var i = 0; i < sticked.length; i++) 
+          for (var i = 0; i < sticked.length; i++)
           {
             if (sticked[i].stickyElement.get(0) == unstickyElement.get(0))
             {

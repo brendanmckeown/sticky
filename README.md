@@ -41,9 +41,12 @@ This is how it works:
 - `className`: CSS class added to the element and its wrapper when "sticked".
 - `wrapperClassName`: CSS class added to the wrapper.
 - `getWidthFrom`: Selector of element referenced to set fixed width of "sticky" element.
+- `navigation`: Turn on sticky page navigation features.
+- `activeNavClass`: CSS class for active menu item in sticky page navigation.
+- `scrollSpeed`: Speed (ms per px) of automatic scrolling.
 
 ## Methods
 
 - `sticky(options)`: Initializer. `options` is optional.
 - `sticky('update')`: Recalculates the element's position.
- 
+

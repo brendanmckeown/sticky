@@ -26,43 +26,39 @@
     $document = $(document),
     sticked = [],
     windowHeight = $window.height(),
+    autoScrolling = false,
 
-    updateNavigation = function(sticked, currentScrollPos) {
-      var navData = sticked.navData,
-        activeClass = sticked.activeNavClass;
+    setActiveNavigation = function(sticky, targetId) {
+
+      var navData = sticky.navData,
+        activeClass = sticky.activeNavClass;
+
+      if (targetId) {
+        var activeItem = navData[targetId];
+        activeItem.active = true;
+        activeItem.anchor.addClass(activeClass);
+      }
+
       for (var item in navData) {
         if (navData.hasOwnProperty(item)) {
-          var navitem = navData[item];
-          if (currentScrollPos >= navitem.top
-            && currentScrollPos < navitem.bottom) {
-              if (!navitem.active) {
-                navitem.active = true;
-                navitem.anchor.addClass(activeClass);
-              }
-          } else if (navitem.active) {
-            navitem.active = false;
-            navitem.anchor.removeClass(activeClass);
+          var navItem = navData[item];
+          if (item !== targetId) {
+            navItem.active = false;
+            navItem.anchor.removeClass(activeClass);
           }
         }
       }
     },
 
-    navigationClick = function(event) {
-      event.preventDefault();
-      var targetId = $(this).attr('href'),
-        offsetPx = event.data.stickyHeight,
-        navData = event.data.navData,
-        target = navData[targetId].top - offsetPx;
-      scrollToSection(target, event.data.scrollSpeed);
-    },
-
-    scrollToSection = function(target, speed) {
+    scrollToTarget = function(target, speed) {
       var distance = Math.abs($window.scrollTop() - target),
         duration = distance * speed;
-      scrollOverride = true;
+      autoScrolling = true;
       $("html, body").animate({
         scrollTop: target
-      }, duration);
+      }, duration, function(){
+        autoScrolling = false;
+      });
     },
 
     scroller = function() {
@@ -77,6 +73,7 @@
           etse = elementTop - s.topSpacing - extra,
           elementHeight = s.stickyElement.outerHeight();
         if (scrollTop <= etse) {
+          // scroll is above sticky element, remove positioning
           if (s.currentTop !== null) {
             s.stickyElement
               .css('position', '')
@@ -106,8 +103,23 @@
             s.currentTop = newTop;
           }
         }
-        if (s.navData) {
-          updateNavigation(s, (scrollTop + elementHeight));
+        if (s.navData && ! autoScrolling) {
+		  var currentScroll = scrollTop + elementHeight;
+		  for (var item in s.navData) {
+		    if (s.navData.hasOwnProperty(item)) {
+		      var navItem = s.navData[item];
+		      if (currentScroll >= navItem.top
+		        && currentScroll < navItem.bottom) {
+		          // scroll position is within anchor section
+		          if (! navItem.active) {
+		            setActiveNavigation(s, navItem.anchor.attr('href'));
+		          }
+		          break;
+		      } else if (navItem.active) {
+		        setActiveNavigation(s, null);
+		      }
+		    }
+		  }
         }
       }
     },
@@ -134,32 +146,39 @@
             stickyElement.css({"float":"none"}).parent().css({"float":"right"});
           }
 
-          var stickyWrapper = stickyElement.parent();
-          stickyWrapper.css('height', stickyElement.outerHeight());
+          var stickyWrapper = stickyElement.parent(),
+            stickyOuterHeight = stickyElement.outerHeight();
+          stickyWrapper.css('height', stickyOuterHeight);
 
           var navData = {};
           if (o.navigation) {
+            // navigation option is turned on
+            // find anchors in sticky element and save positions
             var anchors = stickyElement.find('a[href^="#"]');
             for (var i = 0; i < anchors.length; i++) {
               var $anchor = $(anchors[i]),
                 anchorHref = $anchor.attr('href'),
                 $section = $(anchorHref);
               if ($section.length) {
-                var sectionTop = Math.round($section.offset().top),
-                  sectionHeight = $section.outerHeight();
+                var sectionTop = Math.ceil($section.offset().top);
                 navData[anchorHref] = {
                   anchor: $anchor,
                   top: sectionTop,
-                  bottom: sectionTop + sectionHeight,
+                  bottom: sectionTop + $section.outerHeight(),
                   active: false
                 };
               }
             }
-            stickyElement.on('click', 'a[href^="#"]', {
-	            stickyHeight: stickyElement.outerHeight(),
-	            scrollSpeed: o.scrollSpeed,
-	            navData: navData
-            }, navigationClick);
+            stickyElement.on('click', 'a[href^="#"]', function(event){
+              event.preventDefault();
+              var targetId = $(this).attr('href'),
+                targetPx = (navData[targetId].top - stickyOuterHeight) + 5;
+              setActiveNavigation({
+	              navData: navData,
+	              activeNavClass: o.activeNavClass
+              }, targetId);
+              scrollToTarget(targetPx, o.scrollSpeed);
+            });
           }
 
           sticked.push({

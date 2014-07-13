@@ -29,16 +29,13 @@
     autoScrolling = false,
 
     setActiveNavigation = function(sticky, targetId) {
-
       var navData = sticky.navData,
         activeClass = sticky.activeNavClass;
-
       if (targetId) {
         var activeItem = navData[targetId];
         activeItem.active = true;
         activeItem.anchor.addClass(activeClass);
       }
-
       for (var item in navData) {
         if (navData.hasOwnProperty(item)) {
           var navItem = navData[item];
